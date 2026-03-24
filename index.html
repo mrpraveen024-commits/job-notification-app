@@ -3,56 +3,41 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Job Notification Tracker</title>
+    <title>Placement Readiness Platform</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Manrope:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: "hsl(245, 58%, 51%)",
+              ink: "#0f172a",
+              surface: "#f8fafc",
+              panel: "#ffffff",
+              line: "#e2e8f0",
+              muted: "#64748b",
+            },
+            fontFamily: {
+              sans: ["Inter", "sans-serif"],
+              serif: ["Fraunces", "serif"],
+            },
+            boxShadow: {
+              panel: "0 18px 40px rgba(15, 23, 42, 0.08)",
+            },
+          },
+        },
+      };
+    </script>
     <link rel="stylesheet" href="./styles.css" />
   </head>
-  <body>
-    <div class="app-shell">
-      <header class="top-bar">
-        <div class="top-bar__brand">Job Notification Tracker</div>
-        <div class="top-bar__progress" aria-label="Build progress">Step 3 / 4</div>
-        <div class="status-badge">In Progress</div>
-      </header>
-
-      <nav class="navigation-shell" aria-label="Primary">
-        <div class="navigation-shell__inner">
-          <button
-            class="nav-toggle"
-            id="navToggle"
-            type="button"
-            aria-expanded="false"
-            aria-controls="navMenu"
-            aria-label="Open navigation menu"
-          >
-            <span class="nav-toggle__line"></span>
-            <span class="nav-toggle__line"></span>
-            <span class="nav-toggle__line"></span>
-          </button>
-
-          <div class="nav-menu" id="navMenu">
-            <a class="nav-link" href="/dashboard" data-route="/dashboard">Dashboard</a>
-            <a class="nav-link" href="/saved" data-route="/saved">Saved</a>
-            <a class="nav-link" href="/digest" data-route="/digest">Digest</a>
-            <a class="nav-link" href="/settings" data-route="/settings">Settings</a>
-            <a class="nav-link" href="/proof" data-route="/proof">Proof</a>
-          </div>
-        </div>
-      </nav>
-
-      <main class="page">
-        <section class="route-view" id="routeView" aria-live="polite"></section>
-      </main>
-    </div>
-
-    <div id="modalRoot"></div>
-    <div id="toastRoot"></div>
-    <script src="./jobs-data.js"></script>
-    <script src="./main.js"></script>
+  <body class="bg-surface text-ink antialiased">
+    <div id="root"></div>
+    <script type="module" src="./main.js"></script>
   </body>
 </html>
