@@ -1,33 +1,45 @@
 const routes = {
   "/": {
-    eyebrow: "Home",
-    title: "Home",
-    description: "This section will be built in the next step.",
+    eyebrow: "Landing",
+    title: "Stop Missing The Right Jobs.",
+    description: "Precision-matched job discovery delivered daily at 9AM.",
+    type: "landing",
   },
   "/dashboard": {
     eyebrow: "Dashboard",
     title: "Dashboard",
     description: "This section will be built in the next step.",
+    type: "empty",
+    panelTitle: "No jobs yet.",
+    panelText: "In the next step, you will load a realistic dataset.",
   },
   "/settings": {
     eyebrow: "Settings",
     title: "Settings",
     description: "This section will be built in the next step.",
+    type: "settings",
   },
   "/saved": {
     eyebrow: "Saved",
     title: "Saved",
     description: "This section will be built in the next step.",
+    type: "empty",
+    panelTitle: "No saved jobs yet.",
+    panelText: "Saved roles will appear here once you begin reviewing curated matches.",
   },
   "/digest": {
     eyebrow: "Digest",
     title: "Digest",
     description: "This section will be built in the next step.",
+    type: "empty",
+    panelTitle: "Daily digest preview pending.",
+    panelText: "This section will surface a calm daily summary once the digest workflow is introduced.",
   },
   "/proof": {
     eyebrow: "Proof",
     title: "Proof",
     description: "This section will be built in the next step.",
+    type: "basic",
   },
 };
 
@@ -85,15 +97,80 @@ function renderRoute(pathname) {
     return;
   }
 
-  routeView.innerHTML = `
-    <section class="route-page">
-      <p class="route-page__eyebrow">${route.eyebrow}</p>
-      <h1 class="route-page__heading">${route.title}</h1>
-      <p class="route-page__subtext">${route.description}</p>
-    </section>
-  `;
+  if (route.type === "landing") {
+    routeView.innerHTML = `
+      <section class="route-page route-page--landing">
+        <p class="route-page__eyebrow">${route.eyebrow}</p>
+        <h1 class="route-page__heading">${route.title}</h1>
+        <p class="route-page__subtext">${route.description}</p>
+        <div>
+          <button class="button button--primary" type="button" id="startTracking">
+            Start Tracking
+          </button>
+        </div>
+      </section>
+    `;
+  } else if (route.type === "settings") {
+    routeView.innerHTML = `
+      <section class="route-page route-page--settings">
+        <p class="route-page__eyebrow">${route.eyebrow}</p>
+        <h1 class="route-page__heading">${route.title}</h1>
+        <p class="route-page__subtext">${route.description}</p>
+        <form class="settings-form">
+          <div class="field-group">
+            <label class="field-label" for="roleKeywords">Role keywords</label>
+            <input class="field-input" id="roleKeywords" type="text" placeholder="Product Designer, Frontend Engineer" />
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="preferredLocations">Preferred locations</label>
+            <input class="field-input" id="preferredLocations" type="text" placeholder="Bengaluru, Remote, London" />
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="mode">Mode</label>
+            <select class="field-select" id="mode">
+              <option>Remote</option>
+              <option>Hybrid</option>
+              <option>Onsite</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="experienceLevel">Experience level</label>
+            <input class="field-input" id="experienceLevel" type="text" placeholder="Mid-level, Senior, Staff" />
+          </div>
+        </form>
+      </section>
+    `;
+  } else if (route.type === "empty") {
+    routeView.innerHTML = `
+      <section class="route-page">
+        <p class="route-page__eyebrow">${route.eyebrow}</p>
+        <h1 class="route-page__heading">${route.title}</h1>
+        <p class="route-page__subtext">${route.description}</p>
+        <section class="empty-panel">
+          <h2 class="empty-panel__heading">${route.panelTitle}</h2>
+          <p class="empty-panel__text">${route.panelText}</p>
+        </section>
+      </section>
+    `;
+  } else {
+    routeView.innerHTML = `
+      <section class="route-page">
+        <p class="route-page__eyebrow">${route.eyebrow}</p>
+        <h1 class="route-page__heading">${route.title}</h1>
+        <p class="route-page__subtext">${route.description}</p>
+      </section>
+    `;
+  }
 
   setActiveLink(pathname);
+
+  const startTrackingButton = document.querySelector("#startTracking");
+
+  if (startTrackingButton) {
+    startTrackingButton.addEventListener("click", () => {
+      navigate("/settings");
+    });
+  }
 }
 
 function navigate(pathname) {
