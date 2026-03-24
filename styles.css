@@ -9,6 +9,7 @@
   --space-64: 64px;
   --radius: 8px;
   --border: 1px solid rgba(17, 17, 17, 0.14);
+  --border-strong: 1px solid rgba(17, 17, 17, 0.24);
   --transition: 180ms ease-in-out;
   --content-width: 720px;
 }
@@ -32,7 +33,13 @@ body {
   line-height: 1.7;
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
 button,
+input,
+select,
 a {
   font: inherit;
 }
@@ -59,7 +66,15 @@ button {
 .button,
 .field-input,
 .field-select,
-.empty-panel {
+.empty-panel,
+.filter-bar,
+.job-card,
+.meta-chip,
+.source-badge,
+.modal-backdrop,
+.modal-panel,
+.skill-chip,
+.saved-pill {
   border-radius: var(--radius);
 }
 
@@ -76,7 +91,9 @@ button {
 .top-bar__progress,
 .status-badge,
 .nav-link,
-.nav-toggle {
+.nav-toggle,
+.field-label,
+.job-card__company {
   font-size: 16px;
   font-weight: 600;
 }
@@ -122,7 +139,6 @@ button {
 }
 
 .nav-link.is-active {
-  color: var(--color-text);
   border-color: var(--color-accent);
 }
 
@@ -147,6 +163,19 @@ button {
   background: var(--color-text);
 }
 
+.button--secondary {
+  border: var(--border-strong);
+}
+
+.button--secondary:hover {
+  border-color: var(--color-text);
+}
+
+.button--saved {
+  border: 1px solid rgba(139, 0, 0, 0.24);
+  color: var(--color-accent);
+}
+
 .nav-toggle {
   display: none;
   align-items: center;
@@ -158,7 +187,6 @@ button {
   padding: 0;
   border: var(--border);
   background: transparent;
-  transition: border-color var(--transition);
 }
 
 .nav-toggle__line {
@@ -181,7 +209,7 @@ button {
 }
 
 .route-view {
-  max-width: var(--content-width);
+  width: 100%;
 }
 
 .route-page {
@@ -190,12 +218,15 @@ button {
 }
 
 .route-page--landing,
-.route-page--settings {
+.route-page--settings,
+.route-page--jobs,
+.route-page--saved {
   gap: var(--space-24);
 }
 
 .route-page__eyebrow {
   margin: 0;
+  max-width: var(--content-width);
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -204,6 +235,7 @@ button {
 
 .route-page__heading {
   margin: 0;
+  max-width: var(--content-width);
   font-family: "Instrument Serif", serif;
   font-size: 64px;
   font-weight: 400;
@@ -223,7 +255,9 @@ button {
   border: var(--border);
 }
 
-.empty-panel__heading {
+.empty-panel__heading,
+.job-card__title,
+.modal-panel__title {
   margin: 0 0 var(--space-8);
   font-family: "Instrument Serif", serif;
   font-size: 32px;
@@ -232,26 +266,26 @@ button {
   line-height: 1.1;
 }
 
-.empty-panel__text {
+.empty-panel__text,
+.modal-panel__description {
   max-width: var(--content-width);
   margin: 0;
   font-size: 18px;
 }
 
-.settings-form {
+.settings-form,
+.filter-grid {
   display: grid;
   gap: var(--space-24);
+}
+
+.settings-form {
   max-width: var(--content-width);
 }
 
 .field-group {
   display: grid;
   gap: var(--space-8);
-}
-
-.field-label {
-  font-size: 16px;
-  font-weight: 600;
 }
 
 .field-input,
@@ -266,6 +300,115 @@ button {
 
 .field-select {
   appearance: none;
+}
+
+.filter-bar {
+  border: var(--border);
+  padding: var(--space-24);
+}
+
+.filter-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.field-input--search {
+  min-height: 40px;
+}
+
+.job-list {
+  display: grid;
+  gap: var(--space-24);
+}
+
+.job-card {
+  border: var(--border);
+  padding: var(--space-24);
+}
+
+.job-card__header,
+.job-card__actions,
+.modal-panel__actions {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-16);
+  flex-wrap: wrap;
+}
+
+.job-card__header {
+  margin-bottom: var(--space-16);
+}
+
+.job-card__company {
+  margin: 0 0 var(--space-8);
+}
+
+.job-card__meta,
+.job-card__meta-secondary,
+.modal-panel__meta,
+.skill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-16);
+}
+
+.job-card__meta,
+.modal-panel__meta,
+.modal-panel__description {
+  margin-bottom: var(--space-16);
+}
+
+.meta-chip,
+.source-badge,
+.saved-pill,
+.skill-chip {
+  padding: var(--space-8) var(--space-16);
+  border: var(--border);
+  font-size: 16px;
+}
+
+.source-badge,
+.saved-pill {
+  color: var(--color-accent);
+  border-color: rgba(139, 0, 0, 0.24);
+}
+
+.job-card__actions {
+  margin-top: var(--space-24);
+}
+
+.empty-results {
+  max-width: var(--content-width);
+  padding: var(--space-24);
+  border: var(--border);
+}
+
+.empty-results p {
+  margin: 0;
+}
+
+#modalRoot:empty {
+  display: none;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-24);
+  background: rgba(17, 17, 17, 0.08);
+}
+
+.modal-panel {
+  width: min(100%, 720px);
+  border: var(--border);
+  background: var(--color-bg);
+  padding: var(--space-24);
+}
+
+.modal-panel__description {
+  white-space: pre-line;
 }
 
 @media (max-width: 960px) {
@@ -319,11 +462,18 @@ button {
   }
 
   .top-bar,
-  .navigation-shell__inner {
+  .navigation-shell__inner,
+  .filter-bar,
+  .job-card,
+  .modal-panel {
     padding: var(--space-16);
   }
 
   .page {
     padding-top: var(--space-40);
+  }
+
+  .modal-backdrop {
+    padding: var(--space-16);
   }
 }
