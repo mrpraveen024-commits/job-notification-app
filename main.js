@@ -26,10 +26,8 @@ const routes = {
   "/digest": {
     eyebrow: "Digest",
     title: "Digest",
-    description: "A premium daily summary will be added here once the digest workflow is introduced.",
-    type: "empty",
-    panelTitle: "Daily digest preview pending.",
-    panelText: "This section is reserved for a concise 9AM job summary once the digest layer is built.",
+    description: "A focused daily briefing built from your saved preferences and current match scoring.",
+    type: "digest",
   },
   "/proof": {
     eyebrow: "Proof",
@@ -72,6 +70,23 @@ const dashboardFilters = {
 
 let currentPreferences = loadPreferences();
 let activeModalJobId = null;
+
+function getTodayDigestKey() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+
+  return `jobTrackerDigest_${year}-${month}-${day}`;
+}
+
+function getTodayDigestDateLabel() {
+  return new Date().toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
 
 function loadSavedJobs() {
   try {
@@ -322,6 +337,71 @@ function getDashboardResults() {
   return filteredJobs;
 }
 
+function getDigestJobs() {
+  return getScoredJobs()
+    .filter((job) => job.matchScore >= currentPreferences.minMatchScore)
+    .sort((left, right) => {
+      if (right.matchScore !== left.matchScore) {
+        return right.matchScore - left.matchScore;
+      }
+
+      return left.postedDaysAgo - right.postedDaysAgo;
+    })
+    .slice(0, 10);
+}
+
+function loadDigestForToday() {
+  try {
+    const raw = window.localStorage.getItem(getTodayDigestKey());
+
+    return raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function persistDigestForToday(jobs) {
+  const payload = {
+    date: getTodayDigestDateLabel(),
+    generatedAt: Date.now(),
+    jobs,
+  };
+
+  try {
+    window.localStorage.setItem(getTodayDigestKey(), JSON.stringify(payload));
+  } catch (error) {
+    return payload;
+  }
+
+  return payload;
+}
+
+function getDigestContent() {
+  const existingDigest = loadDigestForToday();
+
+  if (existingDigest) {
+    return existingDigest;
+  }
+
+  return null;
+}
+
+function formatDigestText(digest) {
+  const header = `Top 10 Jobs For You - 9AM Digest\n${digest.date}\n`;
+  const list = digest.jobs
+    .map((job, index) => {
+      return [
+        `${index + 1}. ${job.title}`,
+        `${job.company} | ${job.location} | ${job.experience}`,
+        `Match Score: ${job.matchScore}%`,
+        `Apply: ${job.applyUrl}`,
+      ].join("\n");
+    })
+    .join("\n\n");
+
+  return `${header}\n${list}\n\nThis digest was generated based on your preferences.`;
+}
+
 function renderOptions(options, label) {
   return [`<option value="">${label}</option>`]
     .concat(options.map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`))
@@ -471,6 +551,40 @@ function renderSavedPage(route) {
       <h1 class="route-page__heading">${escapeHtml(route.title)}</h1>
       <p class="route-page__subtext">${escapeHtml(route.description)}</p>
       <section id="savedResults"></section>
+    </section>
+  `;
+}
+
+function renderDigestItem(job) {
+  return `
+    <article class="digest-item">
+      <div class="digest-item__header">
+        <div>
+          <p class="job-card__company">${escapeHtml(job.company)}</p>
+          <h2 class="digest-item__title">${escapeHtml(job.title)}</h2>
+        </div>
+        <div class="score-badge ${getMatchTone(job.matchScore)}">${job.matchScore}% match</div>
+      </div>
+      <div class="digest-item__meta">
+        <div class="meta-chip">${escapeHtml(job.location)}</div>
+        <div class="meta-chip">${escapeHtml(job.experience)}</div>
+      </div>
+      <div class="digest-item__actions">
+        <button class="button button--primary" type="button" data-action="apply-job" data-job-id="${job.id}">
+          Apply
+        </button>
+      </div>
+    </article>
+  `;
+}
+
+function renderDigestPage(route) {
+  return `
+    <section class="route-page route-page--digest">
+      <p class="route-page__eyebrow">${escapeHtml(route.eyebrow)}</p>
+      <h1 class="route-page__heading">${escapeHtml(route.title)}</h1>
+      <p class="route-page__subtext">${escapeHtml(route.description)}</p>
+      <section id="digestRoot"></section>
     </section>
   `;
 }
@@ -682,6 +796,78 @@ function updateSavedResults() {
     `;
 }
 
+function updateDigestResults() {
+  const digestRoot = document.querySelector("#digestRoot");
+
+  if (!digestRoot) {
+    return;
+  }
+
+  const hasPreferences = hasPreferencesConfigured(currentPreferences);
+
+  if (!hasPreferences) {
+    digestRoot.innerHTML = `
+      <section class="empty-panel">
+        <h2 class="empty-panel__heading">Set preferences to generate a personalized digest.</h2>
+        <p class="empty-panel__text">Save your role, location, mode, experience, and skills preferences first.</p>
+      </section>
+    `;
+    return;
+  }
+
+  const digest = getDigestContent();
+
+  if (!digest) {
+    digestRoot.innerHTML = `
+      <section class="digest-shell">
+        <div class="digest-actions">
+          <button class="button button--primary" type="button" data-action="generate-digest">
+            Generate Today's 9AM Digest (Simulated)
+          </button>
+        </div>
+        <p class="digest-note">Demo Mode: Daily 9AM trigger simulated manually.</p>
+      </section>
+    `;
+    return;
+  }
+
+  digestRoot.innerHTML = `
+    <section class="digest-shell">
+      <div class="digest-actions">
+        <button class="button button--primary" type="button" data-action="generate-digest">
+          Generate Today's 9AM Digest (Simulated)
+        </button>
+        <button class="button button--secondary" type="button" data-action="copy-digest">
+          Copy Digest to Clipboard
+        </button>
+        <button class="button button--secondary" type="button" data-action="email-digest">
+          Create Email Draft
+        </button>
+      </div>
+      <article class="digest-card">
+        <header class="digest-card__header">
+          <h2 class="digest-card__title">Top 10 Jobs For You — 9AM Digest</h2>
+          <p class="digest-card__date">${escapeHtml(digest.date)}</p>
+        </header>
+        ${
+          digest.jobs.length
+            ? `<section class="digest-list">${digest.jobs.map(renderDigestItem).join("")}</section>`
+            : `
+              <section class="empty-panel">
+                <h2 class="empty-panel__heading">No matching roles today. Check again tomorrow.</h2>
+                <p class="empty-panel__text">Your preferences are active, but today’s digest has no qualifying roles.</p>
+              </section>
+            `
+        }
+        <footer class="digest-card__footer">
+          <p>This digest was generated based on your preferences.</p>
+        </footer>
+      </article>
+      <p class="digest-note">Demo Mode: Daily 9AM trigger simulated manually.</p>
+    </section>
+  `;
+}
+
 function updateSettingsFeedback(message) {
   const feedback = document.querySelector("#preferencesFeedback");
 
@@ -787,6 +973,9 @@ function renderRoute(pathname) {
   } else if (route.type === "saved") {
     routeView.innerHTML = renderSavedPage(route);
     updateSavedResults();
+  } else if (route.type === "digest") {
+    routeView.innerHTML = renderDigestPage(route);
+    updateDigestResults();
   } else if (route.type === "empty") {
     routeView.innerHTML = renderEmptyPage(route);
   } else {
@@ -816,6 +1005,8 @@ function refreshCurrentRoute() {
     updateDashboardResults();
   } else if (currentPath === "/saved") {
     updateSavedResults();
+  } else if (currentPath === "/digest") {
+    updateDigestResults();
   } else {
     renderRoute(currentPath);
   }
@@ -897,6 +1088,39 @@ if (routeView) {
 
     if (action === "start-tracking") {
       navigate("/settings");
+    } else if (action === "generate-digest") {
+      const existingDigest = loadDigestForToday();
+
+      if (existingDigest) {
+        updateDigestResults();
+        return;
+      }
+
+      const digestJobs = getDigestJobs();
+      persistDigestForToday(digestJobs);
+      updateDigestResults();
+    } else if (action === "copy-digest") {
+      const digest = loadDigestForToday();
+
+      if (!digest) {
+        return;
+      }
+
+      const text = formatDigestText(digest);
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).catch(() => {});
+      }
+    } else if (action === "email-digest") {
+      const digest = loadDigestForToday();
+
+      if (!digest) {
+        return;
+      }
+
+      const subject = encodeURIComponent("My 9AM Job Digest");
+      const body = encodeURIComponent(formatDigestText(digest));
+      window.location.href = `mailto:?subject=${subject}&body=${body}`;
     } else if (action === "view-job" && jobId) {
       openModal(jobId);
     } else if (action === "toggle-save" && jobId) {
