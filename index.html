@@ -16,144 +16,38 @@
     <div class="app-shell">
       <header class="top-bar">
         <div class="top-bar__brand">Job Notification App</div>
-        <div class="top-bar__progress" aria-label="Build progress">Step 1 / 4</div>
-        <div class="status-badge status-badge--progress">In Progress</div>
+        <div class="top-bar__progress" aria-label="Build progress">Step 2 / 4</div>
+        <div class="status-badge">In Progress</div>
       </header>
 
+      <nav class="navigation-shell" aria-label="Primary">
+        <div class="navigation-shell__inner">
+          <button
+            class="nav-toggle"
+            id="navToggle"
+            type="button"
+            aria-expanded="false"
+            aria-controls="navMenu"
+            aria-label="Open navigation menu"
+          >
+            <span class="nav-toggle__line"></span>
+            <span class="nav-toggle__line"></span>
+            <span class="nav-toggle__line"></span>
+          </button>
+
+          <div class="nav-menu" id="navMenu">
+            <a class="nav-link" href="/dashboard" data-route="/dashboard">Dashboard</a>
+            <a class="nav-link" href="/saved" data-route="/saved">Saved</a>
+            <a class="nav-link" href="/digest" data-route="/digest">Digest</a>
+            <a class="nav-link" href="/settings" data-route="/settings">Settings</a>
+            <a class="nav-link" href="/proof" data-route="/proof">Proof</a>
+          </div>
+        </div>
+      </nav>
+
       <main class="page">
-        <section class="context-header">
-          <p class="eyebrow">Design System Foundation</p>
-          <h1>Build the quiet structure before product detail.</h1>
-          <p class="context-header__subtext">
-            A premium B2C interface baseline for a serious job notification product, with no
-            feature logic introduced yet.
-          </p>
-        </section>
-
-        <section class="workspace-layout">
-          <section class="workspace-main" aria-label="Primary workspace">
-            <article class="card hero-card">
-              <div class="card__header">
-                <div>
-                  <p class="section-label">Foundation</p>
-                  <h2>Core primitives are aligned to one system.</h2>
-                </div>
-                <button class="button button--secondary" type="button">Review Tokens</button>
-              </div>
-
-              <p class="text-block">
-                Typography, spacing, color, borders, radius, input treatment, and workspace rhythm
-                are normalized here so later product surfaces can inherit one coherent standard.
-              </p>
-
-              <div class="token-grid">
-                <div class="token-card">
-                  <span class="token-card__label">Spacing</span>
-                  <strong>8 / 16 / 24 / 40 / 64</strong>
-                  <p>Only fixed intervals. No arbitrary offsets.</p>
-                </div>
-                <div class="token-card">
-                  <span class="token-card__label">Typography</span>
-                  <strong>Serif heading, sans body</strong>
-                  <p>Confident hierarchy with restrained body copy.</p>
-                </div>
-                <div class="token-card">
-                  <span class="token-card__label">Surface</span>
-                  <strong>Subtle border, no shadow</strong>
-                  <p>Clarity comes from spacing and contrast, not effects.</p>
-                </div>
-              </div>
-            </article>
-
-            <article class="card">
-              <div class="card__header">
-                <div>
-                  <p class="section-label">Components</p>
-                  <h2>Primary patterns stay predictable.</h2>
-                </div>
-              </div>
-
-              <div class="component-stack">
-                <div class="button-row">
-                  <button class="button button--primary" type="button">Primary Action</button>
-                  <button class="button button--secondary" type="button">Secondary Action</button>
-                </div>
-
-                <div class="input-group">
-                  <label class="input-label" for="prompt">Prompt Box</label>
-                  <textarea
-                    id="prompt"
-                    class="input-field input-field--textarea"
-                    rows="5"
-                  >Define a calm, premium job notification interface with deliberate typography, restrained color, and strong structure.</textarea>
-                </div>
-
-                <div class="state-row">
-                  <div class="state-chip state-chip--success">System ready for implementation</div>
-                  <div class="state-chip state-chip--warning">Waiting for feature layer</div>
-                </div>
-
-                <div class="error-state" role="alert">
-                  <h3>Configuration could not be loaded.</h3>
-                  <p>
-                    The foundation file is missing or unreadable. Restore the source tokens and run
-                    the build again to recover the interface safely.
-                  </p>
-                </div>
-
-                <div class="empty-state">
-                  <h3>No product modules are active yet.</h3>
-                  <p>
-                    Add workflow-specific screens after the design language is approved. This
-                    surface is intentionally reserved, not incomplete.
-                  </p>
-                </div>
-              </div>
-            </article>
-          </section>
-
-          <aside class="workspace-side" aria-label="Secondary panel">
-            <article class="card side-card">
-              <p class="section-label">Step Explanation</p>
-              <h2>What this stage is doing</h2>
-              <p>
-                This system establishes visual rules, shared components, and spatial discipline so
-                future product work does not drift.
-              </p>
-            </article>
-
-            <article class="card side-card">
-              <p class="section-label">Copyable Prompt</p>
-              <div class="prompt-box">
-                Keep the interface calm, structured, and credible. Use the design system tokens
-                only. Avoid adding any job workflow features at this stage.
-              </div>
-              <div class="side-actions">
-                <button class="button button--primary" type="button" id="copyPrompt">
-                  Copy Prompt
-                </button>
-                <button class="button button--secondary" type="button">Mark Foundation</button>
-              </div>
-            </article>
-
-            <article class="card side-card">
-              <p class="section-label">Guidance</p>
-              <ul class="guidance-list">
-                <li>Use one radius value across all controls.</li>
-                <li>Keep text blocks within a readable measure.</li>
-                <li>Resolve states with explanation, never ambiguity.</li>
-              </ul>
-            </article>
-          </aside>
-        </section>
+        <section class="route-view" id="routeView" aria-live="polite"></section>
       </main>
-
-      <footer class="proof-footer">
-        <div class="proof-item"><span class="checkbox"></span><span>UI Built</span></div>
-        <div class="proof-item"><span class="checkbox"></span><span>Logic Working</span></div>
-        <div class="proof-item"><span class="checkbox"></span><span>Test Passed</span></div>
-        <div class="proof-item"><span class="checkbox"></span><span>Deployed</span></div>
-      </footer>
     </div>
 
     <script src="./main.js"></script>
