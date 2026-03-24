@@ -74,7 +74,12 @@ button {
 .modal-backdrop,
 .modal-panel,
 .skill-chip,
-.saved-pill {
+.saved-pill,
+.score-badge,
+.info-banner,
+.checkbox-option,
+.slider-value,
+.toggle-row {
   border-radius: var(--radius);
 }
 
@@ -302,6 +307,62 @@ button {
   appearance: none;
 }
 
+.field-select--multiple {
+  min-height: 64px;
+  padding: var(--space-8) var(--space-16);
+}
+
+.checkbox-group,
+.settings-actions,
+.job-card__badges,
+.slider-row,
+.toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-16);
+  align-items: center;
+}
+
+.checkbox-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-16);
+  border: var(--border);
+}
+
+.checkbox-option input,
+.toggle-row__input {
+  accent-color: var(--color-accent);
+}
+
+.slider-input {
+  flex: 1 1 240px;
+  accent-color: var(--color-accent);
+}
+
+.slider-value,
+.settings-feedback,
+.settings-note {
+  font-size: 16px;
+}
+
+.slider-value {
+  min-width: 40px;
+  padding: var(--space-8) var(--space-16);
+  border: var(--border);
+  text-align: center;
+}
+
+.settings-actions {
+  justify-content: space-between;
+}
+
+.settings-note,
+.settings-feedback {
+  margin: 0;
+}
+
 .filter-bar {
   border: var(--border);
   padding: var(--space-24);
@@ -339,6 +400,10 @@ button {
   margin-bottom: var(--space-16);
 }
 
+.job-card__badges {
+  justify-content: end;
+}
+
 .job-card__company {
   margin: 0 0 var(--space-8);
 }
@@ -361,7 +426,8 @@ button {
 .meta-chip,
 .source-badge,
 .saved-pill,
-.skill-chip {
+.skill-chip,
+.score-badge {
   padding: var(--space-8) var(--space-16);
   border: var(--border);
   font-size: 16px;
@@ -371,6 +437,24 @@ button {
 .saved-pill {
   color: var(--color-accent);
   border-color: rgba(139, 0, 0, 0.24);
+}
+
+.score-badge--strong {
+  color: #4f6b4f;
+  border-color: rgba(79, 107, 79, 0.24);
+}
+
+.score-badge--warm {
+  color: #8b6b2f;
+  border-color: rgba(139, 107, 47, 0.24);
+}
+
+.score-badge--neutral {
+  color: var(--color-text);
+}
+
+.score-badge--soft {
+  color: rgba(17, 17, 17, 0.64);
 }
 
 .job-card__actions {
@@ -409,6 +493,19 @@ button {
 
 .modal-panel__description {
   white-space: pre-line;
+}
+
+.info-banner {
+  max-width: var(--content-width);
+  margin-bottom: var(--space-24);
+  padding: var(--space-16) var(--space-24);
+  border: var(--border);
+}
+
+.info-banner p,
+.toggle-row,
+.settings-feedback {
+  margin: 0;
 }
 
 @media (max-width: 960px) {
@@ -453,6 +550,11 @@ button {
 
   .nav-link {
     width: 100%;
+  }
+
+  .settings-actions,
+  .job-card__badges {
+    justify-content: start;
   }
 }
 

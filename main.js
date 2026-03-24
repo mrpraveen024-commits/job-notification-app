@@ -14,7 +14,7 @@ const routes = {
   "/settings": {
     eyebrow: "Settings",
     title: "Settings",
-    description: "Refine the job tracker setup in the next step. For now, these fields stay as UI placeholders.",
+    description: "Define your preferences once and use them to activate deterministic matching across the dashboard.",
     type: "settings",
   },
   "/saved": {
@@ -39,7 +39,8 @@ const routes = {
   },
 };
 
-const storageKey = "job-notification-tracker-saved-jobs";
+const savedJobsStorageKey = "job-notification-tracker-saved-jobs";
+const preferencesStorageKey = "jobTrackerPreferences";
 const allJobs = Array.isArray(window.JOB_DATA) ? window.JOB_DATA : [];
 const routeView = document.querySelector("#routeView");
 const modalRoot = document.querySelector("#modalRoot");
@@ -47,6 +48,17 @@ const navMenu = document.querySelector("#navMenu");
 const navToggle = document.querySelector("#navToggle");
 const navLinks = Array.from(document.querySelectorAll(".nav-link"));
 const locationOptions = Array.from(new Set(allJobs.map((job) => job.location))).sort();
+const modeOptions = ["Remote", "Hybrid", "Onsite"];
+const experienceOptions = ["Fresher", "0-1", "1-3", "3-5"];
+const sourceOptions = ["LinkedIn", "Naukri", "Indeed"];
+const defaultPreferences = {
+  roleKeywords: "",
+  preferredLocations: [],
+  preferredMode: [],
+  experienceLevel: "",
+  skills: "",
+  minMatchScore: 40,
+};
 const savedJobs = new Set(loadSavedJobs());
 const dashboardFilters = {
   keyword: "",
@@ -55,13 +67,15 @@ const dashboardFilters = {
   experience: "",
   source: "",
   sort: "Latest",
+  showOnlyMatches: false,
 };
 
+let currentPreferences = loadPreferences();
 let activeModalJobId = null;
 
 function loadSavedJobs() {
   try {
-    const raw = window.localStorage.getItem(storageKey);
+    const raw = window.localStorage.getItem(savedJobsStorageKey);
     const parsed = raw ? JSON.parse(raw) : [];
 
     return Array.isArray(parsed) ? parsed : [];
@@ -72,7 +86,47 @@ function loadSavedJobs() {
 
 function persistSavedJobs() {
   try {
-    window.localStorage.setItem(storageKey, JSON.stringify(Array.from(savedJobs)));
+    window.localStorage.setItem(savedJobsStorageKey, JSON.stringify(Array.from(savedJobs)));
+  } catch (error) {
+    return;
+  }
+}
+
+function sanitizePreferences(raw) {
+  const nextPreferences = {
+    roleKeywords: typeof raw?.roleKeywords === "string" ? raw.roleKeywords : "",
+    preferredLocations: Array.isArray(raw?.preferredLocations)
+      ? raw.preferredLocations.filter((location) => locationOptions.includes(location))
+      : [],
+    preferredMode: Array.isArray(raw?.preferredMode)
+      ? raw.preferredMode.filter((mode) => modeOptions.includes(mode))
+      : [],
+    experienceLevel: experienceOptions.includes(raw?.experienceLevel) ? raw.experienceLevel : "",
+    skills: typeof raw?.skills === "string" ? raw.skills : "",
+    minMatchScore: Number.isFinite(Number(raw?.minMatchScore))
+      ? Math.max(0, Math.min(100, Number(raw.minMatchScore)))
+      : defaultPreferences.minMatchScore,
+  };
+
+  return nextPreferences;
+}
+
+function loadPreferences() {
+  try {
+    const raw = window.localStorage.getItem(preferencesStorageKey);
+    const parsed = raw ? JSON.parse(raw) : defaultPreferences;
+
+    return sanitizePreferences(parsed);
+  } catch (error) {
+    return { ...defaultPreferences };
+  }
+}
+
+function persistPreferences(preferences) {
+  currentPreferences = sanitizePreferences(preferences);
+
+  try {
+    window.localStorage.setItem(preferencesStorageKey, JSON.stringify(currentPreferences));
   } catch (error) {
     return;
   }
@@ -124,9 +178,177 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function parseCommaSeparated(value) {
+  return value
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function hasPreferencesConfigured(preferences) {
+  return Boolean(
+    preferences.roleKeywords.trim() ||
+      preferences.preferredLocations.length ||
+      preferences.preferredMode.length ||
+      preferences.experienceLevel ||
+      preferences.skills.trim(),
+  );
+}
+
+function extractSalaryValue(salaryRange) {
+  const lpaMatches = salaryRange.match(/(\d+(?:\.\d+)?)\s*[–-]\s*(\d+(?:\.\d+)?)\s*LPA/i);
+
+  if (lpaMatches) {
+    return Number(lpaMatches[2]);
+  }
+
+  const monthlyMatches = salaryRange.match(/₹\s*(\d+)\s*k\s*[–-]\s*₹?\s*(\d+)\s*k\/month/i);
+
+  if (monthlyMatches) {
+    return (Number(monthlyMatches[2]) * 12) / 100;
+  }
+
+  const singleMatch = salaryRange.match(/(\d+(?:\.\d+)?)/);
+
+  return singleMatch ? Number(singleMatch[1]) : 0;
+}
+
+function computeMatchScore(job, preferences) {
+  const roleKeywords = parseCommaSeparated(preferences.roleKeywords);
+  const preferredSkills = parseCommaSeparated(preferences.skills);
+  const jobTitle = job.title.toLowerCase();
+  const jobDescription = job.description.toLowerCase();
+  const jobSkills = job.skills.map((skill) => skill.toLowerCase());
+  let score = 0;
+
+  if (roleKeywords.some((keyword) => jobTitle.includes(keyword))) {
+    score += 25;
+  }
+
+  if (roleKeywords.some((keyword) => jobDescription.includes(keyword))) {
+    score += 15;
+  }
+
+  if (preferences.preferredLocations.includes(job.location)) {
+    score += 15;
+  }
+
+  if (preferences.preferredMode.includes(job.mode)) {
+    score += 10;
+  }
+
+  if (preferences.experienceLevel && preferences.experienceLevel === job.experience) {
+    score += 10;
+  }
+
+  if (preferredSkills.some((skill) => jobSkills.includes(skill))) {
+    score += 15;
+  }
+
+  if (job.postedDaysAgo <= 2) {
+    score += 5;
+  }
+
+  if (job.source === "LinkedIn") {
+    score += 5;
+  }
+
+  return Math.min(100, score);
+}
+
+function getMatchTone(score) {
+  if (score >= 80) {
+    return "score-badge--strong";
+  }
+
+  if (score >= 60) {
+    return "score-badge--warm";
+  }
+
+  if (score >= 40) {
+    return "score-badge--neutral";
+  }
+
+  return "score-badge--soft";
+}
+
+function getScoredJobs() {
+  return allJobs.map((job) => ({
+    ...job,
+    matchScore: computeMatchScore(job, currentPreferences),
+    salaryValue: extractSalaryValue(job.salaryRange),
+  }));
+}
+
+function getDashboardResults() {
+  const keyword = dashboardFilters.keyword.trim().toLowerCase();
+  const scoredJobs = getScoredJobs();
+
+  const filteredJobs = scoredJobs.filter((job) => {
+    const matchesKeyword =
+      !keyword ||
+      job.title.toLowerCase().includes(keyword) ||
+      job.company.toLowerCase().includes(keyword);
+    const matchesLocation = !dashboardFilters.location || job.location === dashboardFilters.location;
+    const matchesMode = !dashboardFilters.mode || job.mode === dashboardFilters.mode;
+    const matchesExperience =
+      !dashboardFilters.experience || job.experience === dashboardFilters.experience;
+    const matchesSource = !dashboardFilters.source || job.source === dashboardFilters.source;
+    const matchesThreshold =
+      !dashboardFilters.showOnlyMatches || job.matchScore >= currentPreferences.minMatchScore;
+
+    return (
+      matchesKeyword &&
+      matchesLocation &&
+      matchesMode &&
+      matchesExperience &&
+      matchesSource &&
+      matchesThreshold
+    );
+  });
+
+  filteredJobs.sort((left, right) => {
+    if (dashboardFilters.sort === "Match Score") {
+      return right.matchScore - left.matchScore || left.postedDaysAgo - right.postedDaysAgo;
+    }
+
+    if (dashboardFilters.sort === "Salary") {
+      return right.salaryValue - left.salaryValue || left.postedDaysAgo - right.postedDaysAgo;
+    }
+
+    return left.postedDaysAgo - right.postedDaysAgo;
+  });
+
+  return filteredJobs;
+}
+
 function renderOptions(options, label) {
   return [`<option value="">${label}</option>`]
     .concat(options.map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`))
+    .join("");
+}
+
+function renderMultiSelectOptions(options, selectedValues) {
+  return options
+    .map((option) => {
+      const selected = selectedValues.includes(option) ? " selected" : "";
+      return `<option value="${escapeHtml(option)}"${selected}>${escapeHtml(option)}</option>`;
+    })
+    .join("");
+}
+
+function renderModeCheckboxes(selectedValues) {
+  return modeOptions
+    .map((mode) => {
+      const checked = selectedValues.includes(mode) ? " checked" : "";
+
+      return `
+        <label class="checkbox-option">
+          <input type="checkbox" name="preferredMode" value="${escapeHtml(mode)}"${checked} />
+          <span>${escapeHtml(mode)}</span>
+        </label>
+      `;
+    })
     .join("");
 }
 
@@ -135,13 +357,16 @@ function renderJobCard(job) {
   const saveClass = savedJobs.has(job.id) ? "button button--saved" : "button button--secondary";
 
   return `
-    <article class="job-card">
+    <article class="job-card" data-job-card="${job.id}">
       <div class="job-card__header">
         <div>
           <p class="job-card__company">${escapeHtml(job.company)}</p>
           <h2 class="job-card__title">${escapeHtml(job.title)}</h2>
         </div>
-        <div class="source-badge">${escapeHtml(job.source)}</div>
+        <div class="job-card__badges">
+          <div class="score-badge ${getMatchTone(job.matchScore)}">${job.matchScore}% match</div>
+          <div class="source-badge">${escapeHtml(job.source)}</div>
+        </div>
       </div>
       <div class="job-card__meta">
         <div class="meta-chip">${escapeHtml(job.location)} · ${escapeHtml(job.mode)}</div>
@@ -151,7 +376,7 @@ function renderJobCard(job) {
       </div>
       <div class="job-card__meta-secondary">
         ${job.skills
-          .slice(0, 3)
+          .slice(0, 4)
           .map((skill) => `<span class="skill-chip">${escapeHtml(skill)}</span>`)
           .join("")}
       </div>
@@ -170,41 +395,7 @@ function renderJobCard(job) {
   `;
 }
 
-function getFilteredJobs() {
-  const keyword = dashboardFilters.keyword.trim().toLowerCase();
-
-  const filtered = allJobs.filter((job) => {
-    const matchesKeyword =
-      !keyword ||
-      job.title.toLowerCase().includes(keyword) ||
-      job.company.toLowerCase().includes(keyword);
-    const matchesLocation = !dashboardFilters.location || job.location === dashboardFilters.location;
-    const matchesMode = !dashboardFilters.mode || job.mode === dashboardFilters.mode;
-    const matchesExperience =
-      !dashboardFilters.experience || job.experience === dashboardFilters.experience;
-    const matchesSource = !dashboardFilters.source || job.source === dashboardFilters.source;
-
-    return matchesKeyword && matchesLocation && matchesMode && matchesExperience && matchesSource;
-  });
-
-  filtered.sort((left, right) => {
-    if (dashboardFilters.sort === "Oldest") {
-      return right.postedDaysAgo - left.postedDaysAgo;
-    }
-
-    if (dashboardFilters.sort === "Company") {
-      return left.company.localeCompare(right.company);
-    }
-
-    return left.postedDaysAgo - right.postedDaysAgo;
-  });
-
-  return filtered;
-}
-
 function renderDashboardPage(route) {
-  const jobs = getFilteredJobs();
-
   return `
     <section class="route-page route-page--jobs">
       <p class="route-page__eyebrow">${escapeHtml(route.eyebrow)}</p>
@@ -232,64 +423,54 @@ function renderDashboardPage(route) {
           <div class="field-group">
             <label class="field-label" for="modeFilter">Mode</label>
             <select class="field-select" id="modeFilter" data-filter="mode">
-              ${renderOptions(["Remote", "Hybrid", "Onsite"], "All modes")}
+              ${renderOptions(modeOptions, "All modes")}
             </select>
           </div>
           <div class="field-group">
             <label class="field-label" for="experienceFilter">Experience</label>
             <select class="field-select" id="experienceFilter" data-filter="experience">
-              ${renderOptions(["Fresher", "0-1", "1-3", "3-5"], "All experience")}
+              ${renderOptions(experienceOptions, "All experience")}
             </select>
           </div>
           <div class="field-group">
             <label class="field-label" for="sourceFilter">Source</label>
             <select class="field-select" id="sourceFilter" data-filter="source">
-              ${renderOptions(["LinkedIn", "Naukri", "Indeed"], "All sources")}
+              ${renderOptions(sourceOptions, "All sources")}
             </select>
           </div>
           <div class="field-group">
             <label class="field-label" for="sortFilter">Sort</label>
             <select class="field-select" id="sortFilter" data-filter="sort">
               <option value="Latest">Latest</option>
-              <option value="Oldest">Oldest</option>
-              <option value="Company">Company</option>
+              <option value="Match Score">Match Score</option>
+              <option value="Salary">Salary</option>
             </select>
           </div>
         </div>
+        <label class="toggle-row">
+          <input
+            class="toggle-row__input"
+            id="showOnlyMatches"
+            type="checkbox"
+            data-filter="showOnlyMatches"
+            ${dashboardFilters.showOnlyMatches ? "checked" : ""}
+          />
+          <span>Show only jobs above my threshold</span>
+        </label>
       </section>
-      ${
-        jobs.length
-          ? `<section class="job-list">${jobs.map(renderJobCard).join("")}</section>`
-          : `
-            <section class="empty-results">
-              <p>No jobs match your search.</p>
-            </section>
-          `
-      }
+      <section id="dashboardBanner"></section>
+      <section id="dashboardResults"></section>
     </section>
   `;
 }
 
 function renderSavedPage(route) {
-  const jobs = allJobs.filter((job) => savedJobs.has(job.id));
-
   return `
     <section class="route-page route-page--saved">
       <p class="route-page__eyebrow">${escapeHtml(route.eyebrow)}</p>
       <h1 class="route-page__heading">${escapeHtml(route.title)}</h1>
       <p class="route-page__subtext">${escapeHtml(route.description)}</p>
-      ${
-        jobs.length
-          ? `<section class="job-list">${jobs.map(renderJobCard).join("")}</section>`
-          : `
-            <section class="empty-panel">
-              <h2 class="empty-panel__heading">No saved jobs yet.</h2>
-              <p class="empty-panel__text">
-                Save roles from the dashboard to create a quiet shortlist you can revisit later.
-              </p>
-            </section>
-          `
-      }
+      <section id="savedResults"></section>
     </section>
   `;
 }
@@ -300,27 +481,73 @@ function renderSettingsPage(route) {
       <p class="route-page__eyebrow">${escapeHtml(route.eyebrow)}</p>
       <h1 class="route-page__heading">${escapeHtml(route.title)}</h1>
       <p class="route-page__subtext">${escapeHtml(route.description)}</p>
-      <form class="settings-form">
+      <form class="settings-form" id="preferencesForm">
         <div class="field-group">
           <label class="field-label" for="roleKeywords">Role keywords</label>
-          <input class="field-input" id="roleKeywords" type="text" placeholder="Product Designer, Frontend Engineer" />
+          <input
+            class="field-input"
+            id="roleKeywords"
+            name="roleKeywords"
+            type="text"
+            value="${escapeHtml(currentPreferences.roleKeywords)}"
+            placeholder="React Developer, Backend, Analyst"
+          />
         </div>
         <div class="field-group">
           <label class="field-label" for="preferredLocations">Preferred locations</label>
-          <input class="field-input" id="preferredLocations" type="text" placeholder="Bengaluru, Remote, Pune" />
-        </div>
-        <div class="field-group">
-          <label class="field-label" for="mode">Mode</label>
-          <select class="field-select" id="mode">
-            <option>Remote</option>
-            <option>Hybrid</option>
-            <option>Onsite</option>
+          <select
+            class="field-select field-select--multiple"
+            id="preferredLocations"
+            name="preferredLocations"
+            multiple
+          >
+            ${renderMultiSelectOptions(locationOptions, currentPreferences.preferredLocations)}
           </select>
         </div>
         <div class="field-group">
-          <label class="field-label" for="experienceLevel">Experience level</label>
-          <input class="field-input" id="experienceLevel" type="text" placeholder="Fresher, 0-1, 1-3" />
+          <span class="field-label">Preferred mode</span>
+          <div class="checkbox-group">
+            ${renderModeCheckboxes(currentPreferences.preferredMode)}
+          </div>
         </div>
+        <div class="field-group">
+          <label class="field-label" for="experienceLevel">Experience level</label>
+          <select class="field-select" id="experienceLevel" name="experienceLevel">
+            ${renderOptions(experienceOptions, "Any experience")}
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="skills">Skills</label>
+          <input
+            class="field-input"
+            id="skills"
+            name="skills"
+            type="text"
+            value="${escapeHtml(currentPreferences.skills)}"
+            placeholder="JavaScript, SQL, Spring Boot"
+          />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="minMatchScore">Minimum match score</label>
+          <div class="slider-row">
+            <input
+              class="slider-input"
+              id="minMatchScore"
+              name="minMatchScore"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value="${currentPreferences.minMatchScore}"
+            />
+            <div class="slider-value" id="minMatchScoreValue">${currentPreferences.minMatchScore}</div>
+          </div>
+        </div>
+        <div class="settings-actions">
+          <button class="button button--primary" type="submit">Save Preferences</button>
+          <p class="settings-note">Preferences are stored locally in this browser.</p>
+        </div>
+        <p class="settings-feedback" id="preferencesFeedback" aria-live="polite"></p>
       </form>
     </section>
   `;
@@ -365,7 +592,7 @@ function renderLandingPage(route) {
   `;
 }
 
-function syncFilterControls() {
+function syncDashboardControls() {
   const filterMap = {
     keyword: "#keywordSearch",
     location: "#locationFilter",
@@ -382,6 +609,85 @@ function syncFilterControls() {
       element.value = dashboardFilters[key];
     }
   });
+
+  const showOnlyMatchesToggle = document.querySelector("#showOnlyMatches");
+
+  if (showOnlyMatchesToggle) {
+    showOnlyMatchesToggle.checked = dashboardFilters.showOnlyMatches;
+  }
+}
+
+function syncSettingsControls() {
+  const experienceSelect = document.querySelector("#experienceLevel");
+  const thresholdValue = document.querySelector("#minMatchScoreValue");
+
+  if (experienceSelect) {
+    experienceSelect.value = currentPreferences.experienceLevel;
+  }
+
+  if (thresholdValue) {
+    thresholdValue.textContent = String(currentPreferences.minMatchScore);
+  }
+}
+
+function updateDashboardResults() {
+  const bannerContainer = document.querySelector("#dashboardBanner");
+  const resultsContainer = document.querySelector("#dashboardResults");
+
+  if (!bannerContainer || !resultsContainer) {
+    return;
+  }
+
+  const hasPreferences = hasPreferencesConfigured(currentPreferences);
+  const jobs = getDashboardResults();
+
+  bannerContainer.innerHTML = hasPreferences
+    ? ""
+    : `
+      <section class="info-banner">
+        <p>Set your preferences to activate intelligent matching.</p>
+      </section>
+    `;
+
+  resultsContainer.innerHTML = jobs.length
+    ? `<section class="job-list">${jobs.map(renderJobCard).join("")}</section>`
+    : `
+      <section class="empty-panel">
+        <h2 class="empty-panel__heading">No roles match your criteria. Adjust filters or lower threshold.</h2>
+        <p class="empty-panel__text">
+          Review your filters, threshold, or saved preferences to widen the result set.
+        </p>
+      </section>
+    `;
+}
+
+function updateSavedResults() {
+  const savedContainer = document.querySelector("#savedResults");
+
+  if (!savedContainer) {
+    return;
+  }
+
+  const jobs = getScoredJobs().filter((job) => savedJobs.has(job.id));
+
+  savedContainer.innerHTML = jobs.length
+    ? `<section class="job-list">${jobs.map(renderJobCard).join("")}</section>`
+    : `
+      <section class="empty-panel">
+        <h2 class="empty-panel__heading">No saved jobs yet.</h2>
+        <p class="empty-panel__text">
+          Save roles from the dashboard to create a quiet shortlist you can revisit later.
+        </p>
+      </section>
+    `;
+}
+
+function updateSettingsFeedback(message) {
+  const feedback = document.querySelector("#preferencesFeedback");
+
+  if (feedback) {
+    feedback.textContent = message;
+  }
 }
 
 function closeModal() {
@@ -395,7 +701,7 @@ function closeModal() {
 }
 
 function openModal(jobId) {
-  const job = getJobById(jobId);
+  const job = getScoredJobs().find((item) => item.id === jobId);
 
   if (!job || !modalRoot) {
     return;
@@ -410,20 +716,24 @@ function openModal(jobId) {
             <p class="job-card__company">${escapeHtml(job.company)}</p>
             <h2 class="modal-panel__title" id="jobModalTitle">${escapeHtml(job.title)}</h2>
           </div>
-          <button class="button button--secondary" type="button" data-action="dismiss-modal">Close</button>
+          <div class="job-card__badges">
+            <div class="score-badge ${getMatchTone(job.matchScore)}">${job.matchScore}% match</div>
+            <button class="button button--secondary" type="button" data-action="dismiss-modal">Close</button>
+          </div>
         </div>
         <div class="modal-panel__meta">
           <div class="meta-chip">${escapeHtml(job.location)} · ${escapeHtml(job.mode)}</div>
           <div class="meta-chip">${escapeHtml(job.experience)}</div>
           <div class="meta-chip">${escapeHtml(job.salaryRange)}</div>
           <div class="source-badge">${escapeHtml(job.source)}</div>
+          <div class="saved-pill">${escapeHtml(formatPostedDate(job.postedDaysAgo))}</div>
         </div>
         <p class="modal-panel__description">${escapeHtml(job.description)}</p>
         <div class="skill-list">
           ${job.skills.map((skill) => `<span class="skill-chip">${escapeHtml(skill)}</span>`).join("")}
         </div>
         <div class="modal-panel__actions">
-          <button class="button button--secondary" type="button" data-action="toggle-save" data-job-id="${job.id}">
+          <button class="${savedJobs.has(job.id) ? "button button--saved" : "button button--secondary"}" type="button" data-action="toggle-save" data-job-id="${job.id}">
             ${savedJobs.has(job.id) ? "Saved" : "Save"}
           </button>
           <button class="button button--primary" type="button" data-action="apply-job" data-job-id="${job.id}">
@@ -469,11 +779,14 @@ function renderRoute(pathname) {
     routeView.innerHTML = renderLandingPage(route);
   } else if (route.type === "settings") {
     routeView.innerHTML = renderSettingsPage(route);
+    syncSettingsControls();
   } else if (route.type === "dashboard") {
     routeView.innerHTML = renderDashboardPage(route);
-    syncFilterControls();
+    syncDashboardControls();
+    updateDashboardResults();
   } else if (route.type === "saved") {
     routeView.innerHTML = renderSavedPage(route);
+    updateSavedResults();
   } else if (route.type === "empty") {
     routeView.innerHTML = renderEmptyPage(route);
   } else {
@@ -496,6 +809,18 @@ function navigate(pathname) {
   closeMenu();
 }
 
+function refreshCurrentRoute() {
+  const currentPath = window.location.pathname;
+
+  if (currentPath === "/dashboard") {
+    updateDashboardResults();
+  } else if (currentPath === "/saved") {
+    updateSavedResults();
+  } else {
+    renderRoute(currentPath);
+  }
+}
+
 function toggleSaveJob(jobId) {
   const shouldReopenModal = activeModalJobId === jobId;
 
@@ -506,7 +831,7 @@ function toggleSaveJob(jobId) {
   }
 
   persistSavedJobs();
-  renderRoute(window.location.pathname);
+  refreshCurrentRoute();
 
   if (shouldReopenModal) {
     openModal(jobId);
@@ -520,8 +845,29 @@ function handleFilterInput(target) {
     return;
   }
 
-  dashboardFilters[filterKey] = target.value;
-  renderRoute("/dashboard");
+  dashboardFilters[filterKey] =
+    filterKey === "showOnlyMatches" ? Boolean(target.checked) : target.value;
+
+  if (window.location.pathname === "/dashboard") {
+    updateDashboardResults();
+  }
+}
+
+function collectPreferences(form) {
+  const formData = new window.FormData(form);
+  const preferredLocations = Array.from(form.querySelector("#preferredLocations").selectedOptions).map(
+    (option) => option.value,
+  );
+  const preferredMode = formData.getAll("preferredMode");
+
+  return sanitizePreferences({
+    roleKeywords: formData.get("roleKeywords") || "",
+    preferredLocations,
+    preferredMode,
+    experienceLevel: formData.get("experienceLevel") || "",
+    skills: formData.get("skills") || "",
+    minMatchScore: formData.get("minMatchScore") || defaultPreferences.minMatchScore,
+  });
 }
 
 navLinks.forEach((link) => {
@@ -565,11 +911,47 @@ if (routeView) {
   });
 
   routeView.addEventListener("input", (event) => {
-    handleFilterInput(event.target);
+    const target = event.target;
+
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    if (target.matches("[data-filter]")) {
+      handleFilterInput(target);
+    }
+
+    if (target.id === "minMatchScore") {
+      const sliderValue = document.querySelector("#minMatchScoreValue");
+
+      if (sliderValue) {
+        sliderValue.textContent = target.value;
+      }
+    }
   });
 
   routeView.addEventListener("change", (event) => {
-    handleFilterInput(event.target);
+    const target = event.target;
+
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    if (target.matches("[data-filter]")) {
+      handleFilterInput(target);
+    }
+  });
+
+  routeView.addEventListener("submit", (event) => {
+    const form = event.target;
+
+    if (!(form instanceof HTMLFormElement) || form.id !== "preferencesForm") {
+      return;
+    }
+
+    event.preventDefault();
+    persistPreferences(collectPreferences(form));
+    updateSettingsFeedback("Preferences saved.");
   });
 }
 
@@ -589,7 +971,7 @@ if (modalRoot) {
     const action = actionElement.dataset.action;
     const jobId = actionElement.dataset.jobId;
 
-    if (action === "close-modal" || action === "dismiss-modal") {
+    if (action === "dismiss-modal") {
       closeModal();
     } else if (action === "toggle-save" && jobId) {
       toggleSaveJob(jobId);
