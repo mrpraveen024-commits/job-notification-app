@@ -20,6 +20,13 @@ import {
   UserRound,
   Video,
 } from "https://esm.sh/lucide-react@0.511.0";
+import {
+  PolarAngleAxis,
+  PolarGrid,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+} from "https://esm.sh/recharts@2.15.1";
 
 const html = htm.bind(React.createElement);
 
@@ -48,6 +55,239 @@ const dashboardNav = [
   { to: "/resources", label: "Resources", icon: FileText },
   { to: "/profile", label: "Profile", icon: UserRound },
 ];
+
+const skillBreakdownData = [
+  { skill: "DSA", score: 75 },
+  { skill: "System Design", score: 60 },
+  { skill: "Communication", score: 80 },
+  { skill: "Resume", score: 85 },
+  { skill: "Aptitude", score: 70 },
+];
+
+const weeklyActivity = [
+  { day: "Mon", active: true },
+  { day: "Tue", active: true },
+  { day: "Wed", active: false },
+  { day: "Thu", active: true },
+  { day: "Fri", active: true },
+  { day: "Sat", active: false },
+  { day: "Sun", active: true },
+];
+
+const upcomingAssessments = [
+  { title: "DSA Mock Test", schedule: "Tomorrow, 10:00 AM" },
+  { title: "System Design Review", schedule: "Wed, 2:00 PM" },
+  { title: "HR Interview Prep", schedule: "Friday, 11:00 AM" },
+];
+
+function Card({ className = "", children }) {
+  return html`
+    <section className=${`rounded-3xl border border-line bg-panel p-6 shadow-panel sm:p-8 ${className}`}>
+      ${children}
+    </section>
+  `;
+}
+
+function CardHeader({ eyebrow, title, description }) {
+  return html`
+    <header className="mb-6">
+      ${eyebrow
+        ? html`<p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand">${eyebrow}</p>`
+        : null}
+      <h3 className="mt-3 font-serif text-3xl text-ink">${title}</h3>
+      ${description ? html`<p className="mt-3 text-sm leading-7 text-slate-600">${description}</p>` : null}
+    </header>
+  `;
+}
+
+function ReadinessRing() {
+  const score = 72;
+  const radius = 82;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset = circumference - (score / 100) * circumference;
+
+  return html`
+    <${Card}>
+      <${CardHeader}
+        eyebrow="Performance"
+        title="Overall Readiness"
+        description="A consolidated placement index based on current practice consistency and interview preparedness."
+      />
+      <div className="flex items-center justify-center">
+        <div className="relative flex h-64 w-64 items-center justify-center">
+          <svg className="-rotate-90" width="220" height="220" viewBox="0 0 220 220" aria-hidden="true">
+            <circle cx="110" cy="110" r=${radius} fill="none" stroke="#e2e8f0" strokeWidth="14" />
+            <circle
+              cx="110"
+              cy="110"
+              r=${radius}
+              fill="none"
+              stroke="hsl(245, 58%, 51%)"
+              strokeWidth="14"
+              strokeLinecap="round"
+              strokeDasharray=${circumference}
+              strokeDashoffset=${dashOffset}
+              className="readiness-ring"
+            />
+          </svg>
+          <div className="absolute text-center">
+            <div className="font-serif text-5xl text-ink">${score}</div>
+            <div className="mt-2 text-sm font-medium text-slate-500">Readiness Score</div>
+          </div>
+        </div>
+      </div>
+    </${Card}>
+  `;
+}
+
+function SkillBreakdownCard() {
+  return html`
+    <${Card}>
+      <${CardHeader}
+        eyebrow="Coverage"
+        title="Skill Breakdown"
+        description="A balanced view of core placement areas based on recent preparation trends."
+      />
+      <div className="h-72 w-full">
+        <${ResponsiveContainer} width="100%" height="100%">
+          <${RadarChart} data=${skillBreakdownData} outerRadius="72%">
+            <${PolarGrid} stroke="#cbd5e1" />
+            <${PolarAngleAxis}
+              dataKey="skill"
+              tick=${{ fill: "#475569", fontSize: 12, fontFamily: "Inter, sans-serif" }}
+            />
+            <${Radar}
+              name="Score"
+              dataKey="score"
+              stroke="hsl(245, 58%, 51%)"
+              fill="hsl(245, 58%, 51%)"
+              fillOpacity=${0.18}
+            />
+          </${RadarChart}>
+        </${ResponsiveContainer}>
+      </div>
+    </${Card}>
+  `;
+}
+
+function ContinuePracticeCard() {
+  const completed = 3;
+  const total = 10;
+  const width = `${(completed / total) * 100}%`;
+
+  return html`
+    <${Card}>
+      <${CardHeader}
+        eyebrow="Momentum"
+        title="Continue Practice"
+        description="Resume the most recent topic without losing your place in the current learning run."
+      />
+      <div className="rounded-2xl border border-line bg-slate-50 p-5">
+        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-brand">Last Topic</p>
+        <h4 className="mt-3 font-serif text-3xl text-ink">Dynamic Programming</h4>
+        <p className="mt-4 text-sm text-slate-600">${completed}/${total} completed</p>
+        <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-200">
+          <div className="h-full rounded-full bg-brand transition-all duration-200 ease-in-out" style=${{ width }}></div>
+        </div>
+        <button
+          type="button"
+          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-brand px-5 text-sm font-semibold text-white transition-colors duration-200 ease-in-out hover:bg-indigo-700"
+        >
+          Continue
+        </button>
+      </div>
+    </${Card}>
+  `;
+}
+
+function WeeklyGoalsCard() {
+  const solved = 12;
+  const target = 20;
+  const width = `${(solved / target) * 100}%`;
+
+  return html`
+    <${Card}>
+      <${CardHeader}
+        eyebrow="Consistency"
+        title="Weekly Goals"
+        description="A simple weekly target to keep preparation momentum visible and measurable."
+      />
+      <div>
+        <p className="text-base font-medium text-ink">Problems Solved: ${solved}/${target} this week</p>
+        <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-200">
+          <div className="h-full rounded-full bg-brand transition-all duration-200 ease-in-out" style=${{ width }}></div>
+        </div>
+      </div>
+      <div className="mt-6 flex flex-wrap gap-3">
+        ${weeklyActivity.map(
+          ({ day, active }) => html`
+            <div key=${day} className="flex flex-col items-center gap-2">
+              <div
+                className=${[
+                  "flex h-10 w-10 items-center justify-center rounded-full border text-xs font-semibold",
+                  active ? "border-brand bg-brand text-white" : "border-line bg-slate-100 text-slate-500",
+                ].join(" ")}
+              >
+                ${day.slice(0, 1)}
+              </div>
+              <span className="text-xs text-slate-500">${day}</span>
+            </div>
+          `,
+        )}
+      </div>
+    </${Card}>
+  `;
+}
+
+function UpcomingAssessmentsCard() {
+  return html`
+    <${Card} className="lg:col-span-2">
+      <${CardHeader}
+        eyebrow="Schedule"
+        title="Upcoming Assessments"
+        description="Stay aware of the next evaluation checkpoints in your placement preparation plan."
+      />
+      <div className="space-y-4">
+        ${upcomingAssessments.map(
+          ({ title, schedule }) => html`
+            <div
+              key=${title}
+              className="flex flex-col justify-between gap-3 rounded-2xl border border-line bg-slate-50 px-5 py-4 sm:flex-row sm:items-center"
+            >
+              <div>
+                <h4 className="font-medium text-ink">${title}</h4>
+                <p className="mt-1 text-sm text-slate-600">${schedule}</p>
+              </div>
+              <span className="text-sm font-medium text-brand">Upcoming</span>
+            </div>
+          `,
+        )}
+      </div>
+    </${Card}>
+  `;
+}
+
+function DashboardPage() {
+  return html`
+    <section className="space-y-6">
+      <div className="max-w-3xl">
+        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand">Overview</p>
+        <h3 className="mt-3 font-serif text-4xl text-ink">Placement Readiness Dashboard</h3>
+        <p className="mt-3 text-base leading-8 text-slate-600">
+          A focused preparation summary covering readiness, skill coverage, current momentum, and your next assessments.
+        </p>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <${ReadinessRing} />
+        <${SkillBreakdownCard} />
+        <${ContinuePracticeCard} />
+        <${WeeklyGoalsCard} />
+        <${UpcomingAssessmentsCard} />
+      </div>
+    </section>
+  `;
+}
 
 function LandingPage() {
   const navigate = useNavigate();
@@ -177,12 +417,7 @@ function App() {
         <${Route} element=${html`<${DashboardShell} />`}>
           <${Route}
             path="/dashboard"
-            element=${html`
-              <${PlaceholderPage}
-                title="Dashboard"
-                description="Overview cards, preparation streaks, and placement readiness metrics will live here."
-              />
-            `}
+            element=${html`<${DashboardPage} />`}
           />
           <${Route}
             path="/practice"
