@@ -29,6 +29,18 @@ const routes = {
     description: "A focused daily briefing built from your saved preferences and current match scoring.",
     type: "digest",
   },
+  "/jt/07-test": {
+    eyebrow: "Test",
+    title: "Built-In Test Checklist",
+    description: "Track manual validation before release and keep the shipping gate deterministic.",
+    type: "test-checklist",
+  },
+  "/jt/08-ship": {
+    eyebrow: "Ship",
+    title: "Ship Gate",
+    description: "Release stays locked until every required test is marked complete.",
+    type: "ship-gate",
+  },
   "/proof": {
     eyebrow: "Proof",
     title: "Proof",
@@ -39,9 +51,13 @@ const routes = {
 
 const savedJobsStorageKey = "job-notification-tracker-saved-jobs";
 const preferencesStorageKey = "jobTrackerPreferences";
+const statusStorageKey = "jobTrackerStatus";
+const statusUpdatesStorageKey = "jobTrackerStatusUpdates";
+const testStatusStorageKey = "jobTrackerTestStatus";
 const allJobs = Array.isArray(window.JOB_DATA) ? window.JOB_DATA : [];
 const routeView = document.querySelector("#routeView");
 const modalRoot = document.querySelector("#modalRoot");
+const toastRoot = document.querySelector("#toastRoot");
 const navMenu = document.querySelector("#navMenu");
 const navToggle = document.querySelector("#navToggle");
 const navLinks = Array.from(document.querySelectorAll(".nav-link"));
@@ -57,19 +73,36 @@ const defaultPreferences = {
   skills: "",
   minMatchScore: 40,
 };
+const statusOptions = ["Not Applied", "Applied", "Rejected", "Selected"];
+const checklistItems = [
+  "Preferences persist after refresh",
+  "Match score calculates correctly",
+  "\"Show only matches\" toggle works",
+  "Save job persists after refresh",
+  "Apply opens in new tab",
+  "Status update persists after refresh",
+  "Status filter works correctly",
+  "Digest generates top 10 by score",
+  "Digest persists for the day",
+  "No console errors on main pages",
+];
 const savedJobs = new Set(loadSavedJobs());
+let jobStatuses = loadStatuses();
+let testChecklistState = loadTestChecklistState();
 const dashboardFilters = {
   keyword: "",
   location: "",
   mode: "",
   experience: "",
   source: "",
+  status: "",
   sort: "Latest",
   showOnlyMatches: false,
 };
 
 let currentPreferences = loadPreferences();
 let activeModalJobId = null;
+let toastTimeoutId = null;
 
 function getTodayDigestKey() {
   const today = new Date();
@@ -96,6 +129,70 @@ function loadSavedJobs() {
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
     return [];
+  }
+}
+
+function loadStatuses() {
+  try {
+    const raw = window.localStorage.getItem(statusStorageKey);
+    const parsed = raw ? JSON.parse(raw) : {};
+
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function persistStatuses() {
+  try {
+    window.localStorage.setItem(statusStorageKey, JSON.stringify(jobStatuses));
+  } catch (error) {
+    return;
+  }
+}
+
+function loadStatusUpdates() {
+  try {
+    const raw = window.localStorage.getItem(statusUpdatesStorageKey);
+    const parsed = raw ? JSON.parse(raw) : [];
+
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function persistStatusUpdates(updates) {
+  try {
+    window.localStorage.setItem(statusUpdatesStorageKey, JSON.stringify(updates));
+  } catch (error) {
+    return;
+  }
+}
+
+function loadTestChecklistState() {
+  try {
+    const raw = window.localStorage.getItem(testStatusStorageKey);
+    const parsed = raw ? JSON.parse(raw) : {};
+
+    if (!parsed || typeof parsed !== "object") {
+      return {};
+    }
+
+    return checklistItems.reduce((accumulator, item) => {
+      accumulator[item] = Boolean(parsed[item]);
+      return accumulator;
+    }, {});
+  } catch (error) {
+    return {};
+  }
+}
+
+function persistTestChecklistState() {
+  try {
+    window.localStorage.setItem(testStatusStorageKey, JSON.stringify(testChecklistState));
+  } catch (error) {
+    return;
   }
 }
 
@@ -151,6 +248,14 @@ function getRoute(pathname) {
   return routes[pathname] || null;
 }
 
+function getPassedTestCount() {
+  return checklistItems.filter((item) => Boolean(testChecklistState[item])).length;
+}
+
+function areAllTestsPassed() {
+  return getPassedTestCount() === checklistItems.length;
+}
+
 function setActiveLink(pathname) {
   navLinks.forEach((link) => {
     const isActive = link.dataset.route === pathname;
@@ -180,8 +285,22 @@ function formatPostedDate(postedDaysAgo) {
   return `${postedDaysAgo} days ago`;
 }
 
+function formatStatusDate(timestamp) {
+  return new Date(timestamp).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 function getJobById(jobId) {
   return allJobs.find((job) => job.id === jobId) || null;
+}
+
+function getJobStatus(jobId) {
+  const status = jobStatuses[jobId];
+
+  return statusOptions.includes(status) ? status : "Not Applied";
 }
 
 function escapeHtml(value) {
@@ -309,6 +428,7 @@ function getDashboardResults() {
     const matchesExperience =
       !dashboardFilters.experience || job.experience === dashboardFilters.experience;
     const matchesSource = !dashboardFilters.source || job.source === dashboardFilters.source;
+    const matchesStatus = !dashboardFilters.status || getJobStatus(job.id) === dashboardFilters.status;
     const matchesThreshold =
       !dashboardFilters.showOnlyMatches || job.matchScore >= currentPreferences.minMatchScore;
 
@@ -318,6 +438,7 @@ function getDashboardResults() {
       matchesMode &&
       matchesExperience &&
       matchesSource &&
+      matchesStatus &&
       matchesThreshold
     );
   });
@@ -435,6 +556,8 @@ function renderModeCheckboxes(selectedValues) {
 function renderJobCard(job) {
   const saveLabel = savedJobs.has(job.id) ? "Saved" : "Save";
   const saveClass = savedJobs.has(job.id) ? "button button--saved" : "button button--secondary";
+  const status = getJobStatus(job.id);
+  const statusTone = `status-pill--${status.toLowerCase().replace(/\s+/g, "-")}`;
 
   return `
     <article class="job-card" data-job-card="${job.id}">
@@ -455,9 +578,29 @@ function renderJobCard(job) {
         <div class="saved-pill">${escapeHtml(formatPostedDate(job.postedDaysAgo))}</div>
       </div>
       <div class="job-card__meta-secondary">
+        <span class="status-pill ${statusTone}">${escapeHtml(status)}</span>
         ${job.skills
           .slice(0, 4)
           .map((skill) => `<span class="skill-chip">${escapeHtml(skill)}</span>`)
+          .join("")}
+      </div>
+      <div class="status-group">
+        ${statusOptions
+          .map((option) => {
+            const isActive = option === status ? " button--status-active" : "";
+
+            return `
+              <button
+                class="button button--secondary button--compact${isActive}"
+                type="button"
+                data-action="set-status"
+                data-job-id="${job.id}"
+                data-status="${escapeHtml(option)}"
+              >
+                ${escapeHtml(option)}
+              </button>
+            `;
+          })
           .join("")}
       </div>
       <div class="job-card__actions">
@@ -516,6 +659,12 @@ function renderDashboardPage(route) {
             <label class="field-label" for="sourceFilter">Source</label>
             <select class="field-select" id="sourceFilter" data-filter="source">
               ${renderOptions(sourceOptions, "All sources")}
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="statusFilter">Status</label>
+            <select class="field-select" id="statusFilter" data-filter="status">
+              ${renderOptions(statusOptions, "All statuses")}
             </select>
           </div>
           <div class="field-group">
@@ -578,6 +727,52 @@ function renderDigestItem(job) {
   `;
 }
 
+function renderRecentStatusUpdates() {
+  const updates = loadStatusUpdates()
+    .slice()
+    .sort((left, right) => right.changedAt - left.changedAt)
+    .slice(0, 8);
+
+  if (!updates.length) {
+    return `
+      <section class="digest-updates">
+        <h3 class="digest-updates__title">Recent Status Updates</h3>
+        <p class="digest-note">No recent status changes yet.</p>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="digest-updates">
+      <h3 class="digest-updates__title">Recent Status Updates</h3>
+      <div class="digest-updates__list">
+        ${updates
+          .map((update) => {
+            const job = getJobById(update.jobId);
+
+            if (!job) {
+              return "";
+            }
+
+            return `
+              <article class="digest-update-item">
+                <div>
+                  <p class="job-card__company">${escapeHtml(job.company)}</p>
+                  <h4 class="digest-update-item__title">${escapeHtml(job.title)}</h4>
+                </div>
+                <div class="digest-update-item__meta">
+                  <span class="status-pill status-pill--${update.status.toLowerCase().replace(/\s+/g, "-")}">${escapeHtml(update.status)}</span>
+                  <span class="meta-chip">${escapeHtml(formatStatusDate(update.changedAt))}</span>
+                </div>
+              </article>
+            `;
+          })
+          .join("")}
+      </div>
+    </section>
+  `;
+}
+
 function renderDigestPage(route) {
   return `
     <section class="route-page route-page--digest">
@@ -585,6 +780,74 @@ function renderDigestPage(route) {
       <h1 class="route-page__heading">${escapeHtml(route.title)}</h1>
       <p class="route-page__subtext">${escapeHtml(route.description)}</p>
       <section id="digestRoot"></section>
+    </section>
+  `;
+}
+
+function renderTestChecklistPage(route) {
+  const passedCount = getPassedTestCount();
+
+  return `
+    <section class="route-page route-page--test">
+      <p class="route-page__eyebrow">${escapeHtml(route.eyebrow)}</p>
+      <h1 class="route-page__heading">${escapeHtml(route.title)}</h1>
+      <p class="route-page__subtext">${escapeHtml(route.description)}</p>
+      <section class="test-summary">
+        <h2 class="test-summary__title">Tests Passed: ${passedCount} / ${checklistItems.length}</h2>
+        ${
+          passedCount < checklistItems.length
+            ? `<p class="test-summary__warning">Resolve all issues before shipping.</p>`
+            : ""
+        }
+      </section>
+      <section class="test-actions">
+        <button class="button button--secondary" type="button" data-action="reset-test-status">
+          Reset Test Status
+        </button>
+      </section>
+      <section class="checklist">
+        ${checklistItems
+          .map((item) => {
+            const checked = testChecklistState[item] ? " checked" : "";
+            return `
+              <label class="checklist-item" title="How to test">
+                <input type="checkbox" data-action="toggle-test-item" data-test-item="${escapeHtml(item)}"${checked} />
+                <span>${escapeHtml(item)}</span>
+              </label>
+            `;
+          })
+          .join("")}
+      </section>
+    </section>
+  `;
+}
+
+function renderShipGatePage(route) {
+  if (!areAllTestsPassed()) {
+    return `
+      <section class="route-page route-page--ship">
+        <p class="route-page__eyebrow">${escapeHtml(route.eyebrow)}</p>
+        <h1 class="route-page__heading">${escapeHtml(route.title)}</h1>
+        <p class="route-page__subtext">Complete all tests before shipping.</p>
+        <section class="empty-panel">
+          <h2 class="empty-panel__heading">Complete all tests before shipping.</h2>
+          <p class="empty-panel__text">
+            Finish the checklist at <a class="inline-link" href="/jt/07-test" data-route="/jt/07-test">/jt/07-test</a> to unlock shipping.
+          </p>
+        </section>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="route-page route-page--ship">
+      <p class="route-page__eyebrow">${escapeHtml(route.eyebrow)}</p>
+      <h1 class="route-page__heading">${escapeHtml(route.title)}</h1>
+      <p class="route-page__subtext">${escapeHtml(route.description)}</p>
+      <section class="empty-panel">
+        <h2 class="empty-panel__heading">Shipping unlocked.</h2>
+        <p class="empty-panel__text">All checklist items are complete. The release gate is open.</p>
+      </section>
     </section>
   `;
 }
@@ -713,6 +976,7 @@ function syncDashboardControls() {
     mode: "#modeFilter",
     experience: "#experienceFilter",
     source: "#sourceFilter",
+    status: "#statusFilter",
     sort: "#sortFilter",
   };
 
@@ -807,9 +1071,12 @@ function updateDigestResults() {
 
   if (!hasPreferences) {
     digestRoot.innerHTML = `
-      <section class="empty-panel">
-        <h2 class="empty-panel__heading">Set preferences to generate a personalized digest.</h2>
-        <p class="empty-panel__text">Save your role, location, mode, experience, and skills preferences first.</p>
+      <section class="digest-shell">
+        <section class="empty-panel">
+          <h2 class="empty-panel__heading">Set preferences to generate a personalized digest.</h2>
+          <p class="empty-panel__text">Save your role, location, mode, experience, and skills preferences first.</p>
+        </section>
+        ${renderRecentStatusUpdates()}
       </section>
     `;
     return;
@@ -826,6 +1093,7 @@ function updateDigestResults() {
           </button>
         </div>
         <p class="digest-note">Demo Mode: Daily 9AM trigger simulated manually.</p>
+        ${renderRecentStatusUpdates()}
       </section>
     `;
     return;
@@ -863,6 +1131,7 @@ function updateDigestResults() {
           <p>This digest was generated based on your preferences.</p>
         </footer>
       </article>
+      ${renderRecentStatusUpdates()}
       <p class="digest-note">Demo Mode: Daily 9AM trigger simulated manually.</p>
     </section>
   `;
@@ -874,6 +1143,22 @@ function updateSettingsFeedback(message) {
   if (feedback) {
     feedback.textContent = message;
   }
+}
+
+function showToast(message) {
+  if (!toastRoot) {
+    return;
+  }
+
+  if (toastTimeoutId) {
+    window.clearTimeout(toastTimeoutId);
+  }
+
+  toastRoot.innerHTML = `<div class="toast">${escapeHtml(message)}</div>`;
+  toastTimeoutId = window.setTimeout(() => {
+    toastRoot.innerHTML = "";
+    toastTimeoutId = null;
+  }, 2200);
 }
 
 function closeModal() {
@@ -976,6 +1261,10 @@ function renderRoute(pathname) {
   } else if (route.type === "digest") {
     routeView.innerHTML = renderDigestPage(route);
     updateDigestResults();
+  } else if (route.type === "test-checklist") {
+    routeView.innerHTML = renderTestChecklistPage(route);
+  } else if (route.type === "ship-gate") {
+    routeView.innerHTML = renderShipGatePage(route);
   } else if (route.type === "empty") {
     routeView.innerHTML = renderEmptyPage(route);
   } else {
@@ -987,6 +1276,13 @@ function renderRoute(pathname) {
 
 function navigate(pathname) {
   const currentPath = window.location.pathname;
+
+  if (pathname === "/jt/08-ship" && !areAllTestsPassed()) {
+    window.history.pushState({}, "", pathname);
+    renderRoute(pathname);
+    closeMenu();
+    return;
+  }
 
   if (pathname === currentPath) {
     closeMenu();
@@ -1007,6 +1303,8 @@ function refreshCurrentRoute() {
     updateSavedResults();
   } else if (currentPath === "/digest") {
     updateDigestResults();
+  } else if (currentPath === "/jt/07-test" || currentPath === "/jt/08-ship") {
+    renderRoute(currentPath);
   } else {
     renderRoute(currentPath);
   }
@@ -1029,6 +1327,35 @@ function toggleSaveJob(jobId) {
   }
 }
 
+function updateJobStatus(jobId, status) {
+  const nextStatus = statusOptions.includes(status) ? status : "Not Applied";
+
+  jobStatuses = {
+    ...jobStatuses,
+    [jobId]: nextStatus,
+  };
+  persistStatuses();
+
+  const updates = loadStatusUpdates()
+    .filter((update) => update.jobId !== jobId)
+    .concat({
+      jobId,
+      status: nextStatus,
+      changedAt: Date.now(),
+    });
+
+  persistStatusUpdates(updates);
+  refreshCurrentRoute();
+
+  if (activeModalJobId === jobId) {
+    openModal(jobId);
+  }
+
+  if (nextStatus !== "Not Applied") {
+    showToast(`Status updated: ${nextStatus}`);
+  }
+}
+
 function handleFilterInput(target) {
   const filterKey = target.dataset.filter;
 
@@ -1042,6 +1369,27 @@ function handleFilterInput(target) {
   if (window.location.pathname === "/dashboard") {
     updateDashboardResults();
   }
+}
+
+function toggleChecklistItem(item) {
+  testChecklistState = {
+    ...testChecklistState,
+    [item]: !Boolean(testChecklistState[item]),
+  };
+  persistTestChecklistState();
+  refreshCurrentRoute();
+}
+
+function resetChecklistState() {
+  testChecklistState = {};
+
+  try {
+    window.localStorage.removeItem(testStatusStorageKey);
+  } catch (error) {
+    persistTestChecklistState();
+  }
+
+  refreshCurrentRoute();
 }
 
 function collectPreferences(form) {
@@ -1077,6 +1425,14 @@ if (navToggle && navMenu) {
 
 if (routeView) {
   routeView.addEventListener("click", (event) => {
+    const routeLink = event.target.closest("[data-route]");
+
+    if (routeLink && !routeLink.dataset.action) {
+      event.preventDefault();
+      navigate(routeLink.dataset.route || "/");
+      return;
+    }
+
     const actionElement = event.target.closest("[data-action]");
 
     if (!actionElement) {
@@ -1088,6 +1444,12 @@ if (routeView) {
 
     if (action === "start-tracking") {
       navigate("/settings");
+    } else if (action === "toggle-test-item") {
+      toggleChecklistItem(actionElement.dataset.testItem || "");
+    } else if (action === "reset-test-status") {
+      resetChecklistState();
+    } else if (action === "set-status" && jobId) {
+      updateJobStatus(jobId, actionElement.dataset.status || "Not Applied");
     } else if (action === "generate-digest") {
       const existingDigest = loadDigestForToday();
 
@@ -1197,6 +1559,8 @@ if (modalRoot) {
 
     if (action === "dismiss-modal") {
       closeModal();
+    } else if (action === "set-status" && jobId) {
+      updateJobStatus(jobId, actionElement.dataset.status || "Not Applied");
     } else if (action === "toggle-save" && jobId) {
       toggleSaveJob(jobId);
     } else if (action === "apply-job" && jobId) {
