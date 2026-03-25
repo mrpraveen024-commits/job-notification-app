@@ -3,41 +3,155 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Placement Readiness Platform</title>
+    <title>Job Notification App</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,600;6..72,700&family=Inter:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              brand: "hsl(245, 58%, 51%)",
-              ink: "#0f172a",
-              surface: "#f8fafc",
-              panel: "#ffffff",
-              line: "#e2e8f0",
-              muted: "#64748b",
-            },
-            fontFamily: {
-              sans: ["Inter", "sans-serif"],
-              serif: ["Fraunces", "serif"],
-            },
-            boxShadow: {
-              panel: "0 18px 40px rgba(15, 23, 42, 0.08)",
-            },
-          },
-        },
-      };
-    </script>
     <link rel="stylesheet" href="./styles.css" />
   </head>
-  <body class="bg-surface text-ink antialiased">
-    <div id="root"></div>
-    <script type="module" src="./main.js"></script>
+  <body>
+    <div class="app-shell">
+      <header class="top-bar">
+        <div class="top-bar__brand">
+          <span class="eyebrow">Product Shell</span>
+          <strong>Job Notification App</strong>
+        </div>
+        <div class="top-bar__progress" aria-label="Progress indicator">Step 1 / 4</div>
+        <div class="status-badge" aria-label="Current status">In Progress</div>
+      </header>
+
+      <main class="page">
+        <section class="context-header">
+          <p class="eyebrow">Design System Foundation</p>
+          <h1>Build a calm, durable foundation before the product surface expands.</h1>
+          <p class="context-copy">
+            This workspace establishes the visual system, component rules, states, and proof structure for a serious B2C job notification product.
+          </p>
+        </section>
+
+        <section class="workspace-grid">
+          <div class="primary-workspace">
+            <article class="card">
+              <div class="card-header">
+                <div>
+                  <p class="eyebrow">Workspace</p>
+                  <h2>Component Baseline</h2>
+                </div>
+                <span class="inline-note">Predictable, clean, reusable</span>
+              </div>
+              <p class="body-copy">
+                The foundation uses a single radius, restrained borders, deliberate spacing, and a typography system that keeps reading calm at every level.
+              </p>
+              <div class="component-row">
+                <button class="button button--primary" type="button">Primary Action</button>
+                <button class="button button--secondary" type="button">Secondary Action</button>
+              </div>
+              <div class="field-grid">
+                <label class="field">
+                  <span>Workspace Label</span>
+                  <input type="text" value="Structured input treatment" readonly />
+                </label>
+                <label class="field">
+                  <span>State Label</span>
+                  <input type="text" value="Clear focus and subtle borders" readonly />
+                </label>
+              </div>
+            </article>
+
+            <div class="state-grid">
+              <article class="card">
+                <p class="eyebrow">Empty State</p>
+                <h3>No workflow has been activated yet.</h3>
+                <p class="body-copy">
+                  Start from the settings and prompt panel to define the first implementation step. The interface never leaves the user with a dead end.
+                </p>
+              </article>
+
+              <article class="card card--warning">
+                <p class="eyebrow">Error State</p>
+                <h3>A required detail is still missing.</h3>
+                <p class="body-copy">
+                  Add the missing implementation context in the prompt box, then try again. The system explains the next corrective action without blaming the user.
+                </p>
+              </article>
+            </div>
+          </div>
+
+          <aside class="secondary-panel">
+            <article class="card panel-card">
+              <p class="eyebrow">Step Explanation</p>
+              <h2>Prepare the build brief.</h2>
+              <p class="body-copy">
+                Keep the brief specific, calm, and implementation-oriented so every later step inherits the same visual discipline.
+              </p>
+            </article>
+
+            <article class="card panel-card">
+              <p class="eyebrow">Copyable Prompt</p>
+              <label class="prompt-box" for="prompt-text">
+                <textarea id="prompt-text" readonly>Build the Job Notification App using the established premium design system. Preserve the typography, spacing scale, neutral surfaces, deep red action color, and proof-driven layout structure.</textarea>
+              </label>
+              <div class="button-stack">
+                <button class="button button--primary" id="copy-prompt" type="button">Copy</button>
+                <button class="button button--secondary" type="button">Build in Lovable</button>
+                <button class="button button--secondary" type="button">It Worked</button>
+                <button class="button button--secondary" type="button">Error</button>
+                <button class="button button--secondary" type="button">Add Screenshot</button>
+              </div>
+              <p class="feedback" id="copy-feedback" aria-live="polite"></p>
+            </article>
+          </aside>
+        </section>
+      </main>
+
+      <footer class="proof-footer">
+        <div class="proof-footer__header">
+          <div>
+            <p class="eyebrow">Proof Footer</p>
+            <h2>Ship only with visible proof.</h2>
+          </div>
+          <p class="proof-footer__copy">Each checklist item requires a short note so progress stays explicit.</p>
+        </div>
+
+        <form class="proof-grid">
+          <label class="proof-item">
+            <div class="proof-item__row">
+              <input type="checkbox" name="ui-built" />
+              <span>UI Built</span>
+            </div>
+            <input type="text" name="ui-built-proof" placeholder="Add proof for UI completion" />
+          </label>
+
+          <label class="proof-item">
+            <div class="proof-item__row">
+              <input type="checkbox" name="logic-working" />
+              <span>Logic Working</span>
+            </div>
+            <input type="text" name="logic-working-proof" placeholder="Add proof for logic validation" />
+          </label>
+
+          <label class="proof-item">
+            <div class="proof-item__row">
+              <input type="checkbox" name="test-passed" />
+              <span>Test Passed</span>
+            </div>
+            <input type="text" name="test-passed-proof" placeholder="Add proof for testing outcome" />
+          </label>
+
+          <label class="proof-item">
+            <div class="proof-item__row">
+              <input type="checkbox" name="deployed" />
+              <span>Deployed</span>
+            </div>
+            <input type="text" name="deployed-proof" placeholder="Add proof for deployment status" />
+          </label>
+        </form>
+      </footer>
+    </div>
+
+    <script src="./main.js"></script>
   </body>
 </html>
